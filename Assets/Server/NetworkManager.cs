@@ -1,12 +1,13 @@
+using Firesplash.UnityAssets.SocketIO;
 using UnityEngine;
-using SocketIO;
-using Server;
+using UnityEngine.UI;
 
 public class NetworkManager : MonoBehaviour//UnitySingletonPersistent<NetworkManager>
 {
-    public SocketIOComponent SocketPrefab = default;
-    public SocketIOComponent Socket { get; set; }
+    public SocketIOCommunicator Socket { get; set; }
 
+    public Text Text;
+    public InputField InputField;
     private bool _isSocketNull
     {
         get => Socket == null || Socket.Equals(null);
@@ -26,6 +27,7 @@ public class NetworkManager : MonoBehaviour//UnitySingletonPersistent<NetworkMan
     private void Start()
     {
         Connect();
+        InputField.onValueChanged.AddListener(UpdateServerInfo);
     }
 
     private void Update()
@@ -38,7 +40,7 @@ public class NetworkManager : MonoBehaviour//UnitySingletonPersistent<NetworkMan
         if (CurrentStatus == Status.disconnected)
         {
             CurrentStatus = Status.tryingConnect;
-            Socket = Instantiate(SocketPrefab, gameObject.transform);
+            Socket = GetComponent<SocketIOCommunicator>();
         }
         SetupEvents();
     }
@@ -48,7 +50,7 @@ public class NetworkManager : MonoBehaviour//UnitySingletonPersistent<NetworkMan
         if (CurrentStatus == Status.connected)
         {
             CurrentStatus = Status.tryingDisconnect;
-            Socket.Close();
+            Socket.Instance.Close();
         }
     }
 
@@ -66,39 +68,41 @@ public class NetworkManager : MonoBehaviour//UnitySingletonPersistent<NetworkMan
     private void SetupEvents()
     {
         #region SocketIO C# library events
-        Socket.On("open", (e) =>
+
+        Socket.Instance.On("connect", (e) =>
         {
-            Socket.Emit("connection");
+            Socket.Instance.Emit("connection");
             Debug.Log("Connection made to the server");
             CurrentStatus = Status.connected;
         });
 
-        Socket.On("error", (e) =>
+        Socket.Instance.On("error", (payload) =>
         {
-            Debug.Log("Connection error to the server\nError name: " + e.name + "\nErrorData: " + e.data);
+            Debug.Log("Connection error to the server\nError name: " + payload + "\nErrorData: " + payload);
         });
 
-        Socket.On("Close", (e) =>
+        Socket.Instance.On("Close", (payload) =>
         {
-            Debug.Log("[SocketIO] Close: " + e.name + " " + e.data);
+            Debug.Log("[SocketIO] Close: " + payload + " " + payload);
 
             CurrentStatus = Status.destroySocket;
             Disconnect();
             Destroy(Socket.gameObject);
         });
+        
+        Socket.Instance.On("update", (payload) =>
+        {
+            Debug.Log("update: " + payload);
+            Text.text = payload;
+        });
         #endregion
     }
+    
+    
 
-    #region DB
-    /// <returns>Error detected.</returns>
-    public bool DBCheckError(JSONObject data, out string error)
+    public void UpdateServerInfo(string info)
     {
-        error = data["error"].ToString().RemoveQuotes();
-        if (!string.IsNullOrEmpty(error))
-        {
-            return true;
-        }
-        return false;
+        Debug.Log(info);
+        Socket.Instance.Emit("update", info);
     }
-    #endregion
 }
