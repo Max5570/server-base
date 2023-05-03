@@ -5,6 +5,6 @@
   "author": "Firesplash Entertainment <support@firesplash.de>",
   "main": "server.js",
   "dependencies": {
-    "socket.io": "4.1.2"
+    "socket.io": "4.6.1"
   }
 }
